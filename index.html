@@ -1,47 +1,49 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Teachable Machine Image Upload</title>
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+  <title>Teachable Machine Image Demo</title>
 </head>
 <body>
-  <h2>Upload Image for Prediction</h2>
-  <input type="file" accept="image/*" id="imageInput" onchange="handleImage(this)">
-  <br><br>
-  <img id="preview" width="200" />
-  <p id="result">Prediction will appear here...</p>
+  <h1>Webcam Image + Teachable Machine</h1>
+  <video id="webcam" autoplay playsinline width="224" height="224"></video>
+  <br>
+  <button onclick="captureAndPredict()">Take Snapshot & Predict</button>
+  <canvas id="canvas" width="224" height="224" style="display:none;"></canvas>
+  <div id="result">Prediction will show here...</div>
 
-  <script type="text/javascript">
-    const URL = "https://teachablemachine.withgoogle.com/models/XdNkVQmJI/"
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+  <script>
+    const URL = "https://teachablemachine.withgoogle.com/models/YOUR_MODEL_URL/";
+    let model, webcam;
 
-    let model, maxPredictions;
-
-    async function initModel() {
+    async function init() {
       const modelURL = URL + "model.json";
       const metadataURL = URL + "metadata.json";
 
       model = await tmImage.load(modelURL, metadataURL);
-      maxPredictions = model.getTotalClasses();
+      webcam = document.getElementById("webcam");
+
+      // Access the webcam
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        webcam.srcObject = stream;
+      }
     }
 
-    async function handleImage(input) {
-      if (!model) await initModel();
+    async function captureAndPredict() {
+      const canvas = document.getElementById("canvas");
+      const context = canvas.getContext("2d");
+      context.drawImage(webcam, 0, 0, canvas.width, canvas.height);
 
-      const file = input.files[0];
-      const img = document.getElementById("preview");
-      img.src = URL.createObjectURL(file);
-
-      img.onload = async () => {
-        const prediction = await model.predict(img);
-        prediction.sort((a, b) => b.probability - a.probability);
-        const top = prediction[0];
-
-        document.getElementById("result").innerText = `Prediction: ${top.className}`;
-
-        // Send to MIT App Inventor
-        window.parent.postMessage(top.className, "*");
-      };
+      // Run prediction
+      const prediction = await model.predict(canvas);
+      prediction.sort((a, b) => b.probability - a.probability);
+      document.getElementById("result").innerText = 
+        `Prediction: ${prediction[0].className} (${(prediction[0].probability * 100).toFixed(2)}%)`;
     }
+
+    init();
   </script>
 </body>
 </html>
+
