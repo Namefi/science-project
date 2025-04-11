@@ -3,15 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AI Mood Detector</title>
-  <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+  <title>Mood Detector</title>
   <style>
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
       font-family: 'Segoe UI', sans-serif;
-      background: #f3f4f6;
+      background: #f9fafb;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -20,7 +19,7 @@
 
     h1 {
       color: #111827;
-      margin-bottom: 10px;
+      margin-bottom: 20px;
       text-align: center;
     }
 
@@ -50,18 +49,6 @@
       background-color: #2563eb;
     }
 
-    #result {
-      margin-top: 20px;
-      font-size: 18px;
-      color: #111827;
-      background-color: white;
-      padding: 12px 20px;
-      border-radius: 12px;
-      text-align: center;
-      max-width: 300px;
-      box-shadow: 0 5px 10px rgba(0,0,0,0.05);
-    }
-
     #loader {
       margin-top: 20px;
       border: 6px solid #f3f3f3;
@@ -77,6 +64,18 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+
+    #result {
+      margin-top: 20px;
+      font-size: 18px;
+      color: #111827;
+      background-color: white;
+      padding: 12px 20px;
+      border-radius: 12px;
+      text-align: center;
+      max-width: 300px;
+      box-shadow: 0 5px 10px rgba(0,0,0,0.05);
+    }
   </style>
 </head>
 <body>
@@ -84,14 +83,15 @@
   <video id="webcam" autoplay playsinline></video>
   <canvas id="canvas" width="224" height="224" style="display:none;"></canvas>
   <button onclick="captureAndPredict()">📸 Predict Mood</button>
-  <div id="loader"></div> <!-- 👈 Spinner here -->
+  <div id="loader"></div>
   <div id="result">Prediction will show here...</div>
 
-  <!-- TensorFlow.js & Teachable Machine -->
+  <!-- Load TensorFlow and Teachable Machine -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+
   <script>
-    const URL = "https://teachablemachine.withgoogle.com/models/XdNkVQmJI/"; // replace with your model
+    const URL = "https://teachablemachine.withgoogle.com/models/XdNkVQmJI/"; // Replace with your model URL
     let model, webcamStream;
 
     async function init() {
@@ -110,38 +110,36 @@
     }
 
     async function captureAndPredict() {
-  const loader = document.getElementById("loader");
-  const result = document.getElementById("result");
+      const loader = document.getElementById("loader");
+      const result = document.getElementById("result");
 
-  loader.style.display = "block";
-  result.textContent = "Analyzing...";
+      loader.style.display = "block";
+      result.textContent = "Analyzing...";
 
-  const webcam = document.getElementById("webcam");
-  const canvas = document.getElementById("canvas");
-  const context = canvas.getContext("2d");
+      const webcam = document.getElementById("webcam");
+      const canvas = document.getElementById("canvas");
+      const context = canvas.getContext("2d");
 
-  context.drawImage(webcam, 0, 0, canvas.width, canvas.height);
-  const prediction = await model.predict(canvas);
-  prediction.sort((a, b) => b.probability - a.probability);
-  const best = prediction[0];
+      context.drawImage(webcam, 0, 0, canvas.width, canvas.height);
+      const prediction = await model.predict(canvas);
+      prediction.sort((a, b) => b.probability - a.probability);
+      const best = prediction[0];
 
-  const tips = {
-    "happy": "Keep smiling! Spread that good vibe to someone around you today. 😊",
-    "sad": "It's okay to feel down. Take deep breaths and talk to a friend. 💙",
-    "normal": "Stay balanced and calm. Maybe take a short walk or a break. 🌿"
-  };
+      const tips = {
+        "happy": "Keep smiling! Spread that good vibe to someone around you today. 😊",
+        "sad": "It's okay to feel down. Take deep breaths and talk to a friend. 💙",
+        "normal": "Stay balanced and calm. Maybe take a short walk or a break. 🌿"
+      };
 
-  const emotion = best.className.toLowerCase();
-  const tip = tips[emotion] || "Be kind to yourself today. 💛";
+      const emotion = best.className.toLowerCase();
+      const tip = tips[emotion] || "Be kind to yourself today. 💛";
 
-  result.innerHTML = `
-    🧠 <strong>${emotion.charAt(0).toUpperCase() + emotion.slice(1)}</strong> (${(best.probability * 100).toFixed(2)}%)<br>
-    💡 <em>${tip}</em>
-  `;
+      result.innerHTML = `
+        🧠 <strong>${emotion.charAt(0).toUpperCase() + emotion.slice(1)}</strong> (${(best.probability * 100).toFixed(2)}%)<br>
+        💡 <em>${tip}</em>
+      `;
 
-  loader.style.display = "none";
-}
-
+      loader.style.display = "none";
     }
 
     init();
