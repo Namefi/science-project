@@ -11,34 +11,45 @@
   <canvas id="canvas" width="224" height="224" style="display:none;"></canvas>
   <div id="result">Prediction will show here...</div>
 
+  <!-- ✅ Add TensorFlow.js before anything else -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+
+  <!-- ✅ Then load Teachable Machine -->
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+
   <script>
-    const URL = "https://teachablemachine.withgoogle.com/models/XdNkVQmJI/";
-    let model, webcam;
+    const URL = "https://teachablemachine.withgoogle.com/models/XdNkVQmJI/"; // ✅ Replace with your actual model URL
+    let model, webcamStream;
 
     async function init() {
       const modelURL = URL + "model.json";
       const metadataURL = URL + "metadata.json";
 
       model = await tmImage.load(modelURL, metadataURL);
-      webcam = document.getElementById("webcam");
 
-      // Access the webcam
+      const webcam = document.getElementById("webcam");
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        webcam.srcObject = stream;
+        webcamStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        webcam.srcObject = webcamStream;
+        await webcam.play(); // ✅ Make sure video starts
       }
     }
 
     async function captureAndPredict() {
+      const webcam = document.getElementById("webcam");
+      if (!webcam || webcam.readyState !== 4) {
+        alert("Webcam not ready!");
+        return;
+      }
+
       const canvas = document.getElementById("canvas");
       const context = canvas.getContext("2d");
       context.drawImage(webcam, 0, 0, canvas.width, canvas.height);
 
-      // Run prediction
       const prediction = await model.predict(canvas);
       prediction.sort((a, b) => b.probability - a.probability);
-      document.getElementById("result").innerText = 
+
+      document.getElementById("result").innerText =
         `Prediction: ${prediction[0].className} (${(prediction[0].probability * 100).toFixed(2)}%)`;
     }
 
@@ -46,4 +57,3 @@
   </script>
 </body>
 </html>
-
