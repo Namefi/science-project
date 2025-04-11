@@ -110,23 +110,38 @@
     }
 
     async function captureAndPredict() {
-      const loader = document.getElementById("loader");
-      const result = document.getElementById("result");
+  const loader = document.getElementById("loader");
+  const result = document.getElementById("result");
 
-      loader.style.display = "block";
-      result.textContent = "Analyzing...";
+  loader.style.display = "block";
+  result.textContent = "Analyzing...";
 
-      const webcam = document.getElementById("webcam");
-      const canvas = document.getElementById("canvas");
-      const context = canvas.getContext("2d");
+  const webcam = document.getElementById("webcam");
+  const canvas = document.getElementById("canvas");
+  const context = canvas.getContext("2d");
 
-      context.drawImage(webcam, 0, 0, canvas.width, canvas.height);
-      const prediction = await model.predict(canvas);
-      prediction.sort((a, b) => b.probability - a.probability);
-      const best = prediction[0];
+  context.drawImage(webcam, 0, 0, canvas.width, canvas.height);
+  const prediction = await model.predict(canvas);
+  prediction.sort((a, b) => b.probability - a.probability);
+  const best = prediction[0];
 
-      result.textContent = `🧠 ${best.className} (${(best.probability * 100).toFixed(2)}%)`;
-      loader.style.display = "none";
+  const tips = {
+    "happy": "Keep smiling! Spread that good vibe to someone around you today. 😊",
+    "sad": "It's okay to feel down. Take deep breaths and talk to a friend. 💙",
+    "normal": "Stay balanced and calm. Maybe take a short walk or a break. 🌿"
+  };
+
+  const emotion = best.className.toLowerCase();
+  const tip = tips[emotion] || "Be kind to yourself today. 💛";
+
+  result.innerHTML = `
+    🧠 <strong>${emotion.charAt(0).toUpperCase() + emotion.slice(1)}</strong> (${(best.probability * 100).toFixed(2)}%)<br>
+    💡 <em>${tip}</em>
+  `;
+
+  loader.style.display = "none";
+}
+
     }
 
     init();
