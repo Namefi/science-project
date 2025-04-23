@@ -23,34 +23,35 @@
     <script src="edge-impulse-standalone.js"></script>
     <script src="run-impulse.js"></script>
     <script>
-        let currentStream;
-        let currentDeviceIndex = 0;
         let videoDevices = [];
+        let currentStream = null;
+        let currentDeviceIndex = 0;
 
         async function getVideoDevices() {
             const devices = await navigator.mediaDevices.enumerateDevices();
             videoDevices = devices.filter(device => device.kind === 'videoinput');
+            console.log('Detected cameras:', videoDevices);
         }
 
         async function setupCamera(deviceId = null) {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+
             const constraints = {
                 video: deviceId ? { deviceId: { exact: deviceId }, width: 320, height: 240 } : { width: 320, height: 240 },
                 audio: false
             };
 
-            if (currentStream) {
-                currentStream.getTracks().forEach(track => track.stop());
-            }
-
             try {
                 currentStream = await navigator.mediaDevices.getUserMedia(constraints);
                 const video = document.getElementById('webcam');
                 video.srcObject = currentStream;
-                return new Promise(resolve => {
-                    video.onloadedmetadata = () => resolve(video);
-                });
-            } catch (e) {
-                console.error('Camera error:', e);
+                await video.play();
+                return video;
+            } catch (err) {
+                console.error('Error accessing camera:', err);
+                document.getElementById('output').textContent = "Camera access error: " + err.message;
             }
         }
 
@@ -68,10 +69,9 @@
             const video = await setupCamera(videoDevices[currentDeviceIndex]?.deviceId);
 
             const canvas = document.getElementById('canvas');
-            const ctx = canvas.getContext('2d');
             const output = document.getElementById("output");
 
-            var classifier = new EdgeImpulseClassifier();
+            const classifier = new EdgeImpulseClassifier();
             await classifier.init();
 
             setInterval(async () => {
@@ -79,9 +79,9 @@
                 resizedCanvas.width = 320;
                 resizedCanvas.height = 320;
                 const resizedCtx = resizedCanvas.getContext('2d');
-                resizedCtx.drawImage(video, 0, 0, resizedCanvas.width, resizedCanvas.height);
+                resizedCtx.drawImage(video, 0, 0, 320, 320);
 
-                const imageData = resizedCtx.getImageData(0, 0, resizedCanvas.width, resizedCanvas.height);
+                const imageData = resizedCtx.getImageData(0, 0, 320, 320);
                 const rawRgbData = [];
                 for (let i = 0; i < imageData.data.length; i += 4) {
                     rawRgbData.push(imageData.data[i]);
@@ -96,9 +96,9 @@
                         outputText += `${labelResult.label}: ${Math.round(labelResult.value * 100)}%\n`;
                     });
                     output.textContent = outputText;
-                } catch (error) {
-                    console.error('Error during inference:', error);
-                    output.textContent = "Error during inference. Check the console for details.";
+                } catch (err) {
+                    console.error('Inference error:', err);
+                    output.textContent = "Inference error: " + err.message;
                 }
             }, 1000);
         })();
