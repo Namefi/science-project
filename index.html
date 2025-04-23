@@ -42,24 +42,30 @@
                 currentStream.getTracks().forEach(track => track.stop());
             }
 
-            currentStream = await navigator.mediaDevices.getUserMedia(constraints);
-            const video = document.getElementById('webcam');
-            video.srcObject = currentStream;
-
-            return new Promise(resolve => {
-                video.onloadedmetadata = () => resolve(video);
-            });
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                const video = document.getElementById('webcam');
+                video.srcObject = currentStream;
+                return new Promise(resolve => {
+                    video.onloadedmetadata = () => resolve(video);
+                });
+            } catch (e) {
+                console.error('Camera error:', e);
+            }
         }
 
         document.getElementById('switchCameraBtn').addEventListener('click', async () => {
-            currentDeviceIndex = (currentDeviceIndex + 1) % videoDevices.length;
-            const deviceId = videoDevices[currentDeviceIndex].deviceId;
-            await setupCamera(deviceId);
+            if (videoDevices.length > 1) {
+                currentDeviceIndex = (currentDeviceIndex + 1) % videoDevices.length;
+                await setupCamera(videoDevices[currentDeviceIndex].deviceId);
+            } else {
+                alert("No other camera found.");
+            }
         });
 
         (async () => {
             await getVideoDevices();
-            const video = await setupCamera(videoDevices[0]?.deviceId);
+            const video = await setupCamera(videoDevices[currentDeviceIndex]?.deviceId);
 
             const canvas = document.getElementById('canvas');
             const ctx = canvas.getContext('2d');
