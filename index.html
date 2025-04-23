@@ -2,16 +2,20 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Browser Inference Demo</title>
+    <title>Browser inference demo</title>
     <style>
         video, canvas {
             display: block;
+            margin-top: 10px;
+        }
+        button {
             margin-top: 10px;
         }
     </style>
 </head>
 <body>
     <h1>Edge Impulse Classifier</h1>
+    <button id="switchCameraBtn">Switch Camera</button>
     <video id="webcam" autoplay playsinline width="320" height="240"></video>
     <canvas id="canvas" width="320" height="240" style="display: none;"></canvas>
     <pre id="output">Waiting for input...</pre>
@@ -19,46 +23,43 @@
     <script src="edge-impulse-standalone.js"></script>
     <script src="run-impulse.js"></script>
     <script>
-        // Function to check for camera permission
-        async function checkCameraPermission() {
-            try {
-                const permissionStatus = await navigator.permissions.query({ name: 'camera' });
-                if (permissionStatus.state === 'granted') {
-                    console.log('Camera permission already granted');
-                } else if (permissionStatus.state === 'denied') {
-                    alert('Camera access is denied. Please enable it in your browser settings.');
-                }
-            } catch (error) {
-                console.error('Permission error:', error);
-            }
+        let currentStream;
+        let currentDeviceIndex = 0;
+        let videoDevices = [];
+
+        async function getVideoDevices() {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            videoDevices = devices.filter(device => device.kind === 'videoinput');
         }
 
-        // Initialize webcam
-        async function setupCamera() {
+        async function setupCamera(deviceId = null) {
+            const constraints = {
+                video: deviceId ? { deviceId: { exact: deviceId }, width: 320, height: 240 } : { width: 320, height: 240 },
+                audio: false
+            };
+
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+
+            currentStream = await navigator.mediaDevices.getUserMedia(constraints);
             const video = document.getElementById('webcam');
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { width: 320, height: 240 },
-                    audio: false
-                });
-                video.srcObject = stream;
-                return new Promise(resolve => {
-                    video.onloadedmetadata = () => {
-                        resolve(video);
-                    };
-                });
-            } catch (error) {
-                console.error('Error accessing camera:', error);
-                alert('Could not access camera. Please check your permissions or try again.');
-            }
+            video.srcObject = currentStream;
+
+            return new Promise(resolve => {
+                video.onloadedmetadata = () => resolve(video);
+            });
         }
 
-        // Main function
-        (async () => {
-            await checkCameraPermission();  // Check for camera permission
+        document.getElementById('switchCameraBtn').addEventListener('click', async () => {
+            currentDeviceIndex = (currentDeviceIndex + 1) % videoDevices.length;
+            const deviceId = videoDevices[currentDeviceIndex].deviceId;
+            await setupCamera(deviceId);
+        });
 
-            const video = await setupCamera();
-            if (!video) return;
+        (async () => {
+            await getVideoDevices();
+            const video = await setupCamera(videoDevices[0]?.deviceId);
 
             const canvas = document.getElementById('canvas');
             const ctx = canvas.getContext('2d');
@@ -67,37 +68,27 @@
             var classifier = new EdgeImpulseClassifier();
             await classifier.init();
 
-            // Run inference every second
             setInterval(async () => {
-                // Resize video to 320x320
                 const resizedCanvas = document.createElement('canvas');
-                resizedCanvas.width = 320;  // Resize to 320x320
+                resizedCanvas.width = 320;
                 resizedCanvas.height = 320;
                 const resizedCtx = resizedCanvas.getContext('2d');
                 resizedCtx.drawImage(video, 0, 0, resizedCanvas.width, resizedCanvas.height);
 
-                // Get resized image data (raw RGB)
                 const imageData = resizedCtx.getImageData(0, 0, resizedCanvas.width, resizedCanvas.height);
-
-                // Extract raw RGB data (flattened array of pixel values)
                 const rawRgbData = [];
                 for (let i = 0; i < imageData.data.length; i += 4) {
-                    rawRgbData.push(imageData.data[i]);     // Red
-                    rawRgbData.push(imageData.data[i + 1]); // Green
-                    rawRgbData.push(imageData.data[i + 2]); // Blue
+                    rawRgbData.push(imageData.data[i]);
+                    rawRgbData.push(imageData.data[i + 1]);
+                    rawRgbData.push(imageData.data[i + 2]);
                 }
 
-                // Classify the resized image (raw RGB data)
                 try {
                     const result = await classifier.classify(rawRgbData);
-                    console.log('Inference Result:', result);
-
-                    // Output all results
                     let outputText = 'Classification results:\n';
                     result.results.forEach((labelResult) => {
                         outputText += `${labelResult.label}: ${Math.round(labelResult.value * 100)}%\n`;
                     });
-
                     output.textContent = outputText;
                 } catch (error) {
                     console.error('Error during inference:', error);
