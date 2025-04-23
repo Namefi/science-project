@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Browser Inference Demo</title>
+    <style>
+        video, canvas {
+            display: block;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Edge Impulse Classifier</h1>
+    <video id="webcam" autoplay playsinline width="320" height="240"></video>
+    <canvas id="canvas" width="320" height="240" style="display: none;"></canvas>
+    <pre id="output">Waiting for input...</pre>
+
+    <script src="edge-impulse-standalone.js"></script>
+    <script src="run-impulse.js"></script>
+    <script>
+        // Function to check for camera permission
+        async function checkCameraPermission() {
+            try {
+                const permissionStatus = await navigator.permissions.query({ name: 'camera' });
+                if (permissionStatus.state === 'granted') {
+                    console.log('Camera permission already granted');
+                } else if (permissionStatus.state === 'denied') {
+                    alert('Camera access is denied. Please enable it in your browser settings.');
+                }
+            } catch (error) {
+                console.error('Permission error:', error);
+            }
+        }
+
+        // Initialize webcam
+        async function setupCamera() {
+            const video = document.getElementById('webcam');
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 320, height: 240 },
+                    audio: false
+                });
+                video.srcObject = stream;
+                return new Promise(resolve => {
+                    video.onloadedmetadata = () => {
+                        resolve(video);
+                    };
+                });
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                alert('Could not access camera. Please check your permissions or try again.');
+            }
+        }
+
+        // Main function
+        (async () => {
+            await checkCameraPermission();  // Check for camera permission
+
+            const video = await setupCamera();
+            if (!video) return;
+
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const output = document.getElementById("output");
+
+            var classifier = new EdgeImpulseClassifier();
+            await classifier.init();
+
+            // Run inference every second
+            setInterval(async () => {
+                // Resize video to 320x320
+                const resizedCanvas = document.createElement('canvas');
+                resizedCanvas.width = 320;  // Resize to 320x320
+                resizedCanvas.height = 320;
+                const resizedCtx = resizedCanvas.getContext('2d');
+                resizedCtx.drawImage(video, 0, 0, resizedCanvas.width, resizedCanvas.height);
+
+                // Get resized image data (raw RGB)
+                const imageData = resizedCtx.getImageData(0, 0, resizedCanvas.width, resizedCanvas.height);
+
+                // Extract raw RGB data (flattened array of pixel values)
+                const rawRgbData = [];
+                for (let i = 0; i < imageData.data.length; i += 4) {
+                    rawRgbData.push(imageData.data[i]);     // Red
+                    rawRgbData.push(imageData.data[i + 1]); // Green
+                    rawRgbData.push(imageData.data[i + 2]); // Blue
+                }
+
+                // Classify the resized image (raw RGB data)
+                try {
+                    const result = await classifier.classify(rawRgbData);
+                    console.log('Inference Result:', result);
+
+                    // Output all results
+                    let outputText = 'Classification results:\n';
+                    result.results.forEach((labelResult) => {
+                        outputText += `${labelResult.label}: ${Math.round(labelResult.value * 100)}%\n`;
+                    });
+
+                    output.textContent = outputText;
+                } catch (error) {
+                    console.error('Error during inference:', error);
+                    output.textContent = "Error during inference. Check the console for details.";
+                }
+            }, 1000);
+        })();
+    </script>
+</body>
+</html>
